@@ -1,4 +1,4 @@
-https://YOUR-GITHUB-USERNAME.github.io/YOUR-REPO-NAME<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -102,7 +102,6 @@ https://YOUR-GITHUB-USERNAME.github.io/YOUR-REPO-NAME<!DOCTYPE html>
 <script>
 const SUPABASE_URL = "https://vuunglcikuscrxqhczhp.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1dW5nbGNpa3VzY3J4cWhjemhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MDMzMzYsImV4cCI6MjA5ODA3OTMzNn0.DsUBA6R3hOYBodS9z0XUgiQVEet3cnEOgwrk9d_yPoQ";
-const STREAMER_PASS = "dontreadthispls";
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -130,8 +129,8 @@ function genCaptcha() {
   const b = Math.floor(Math.random() * 12) + 2;
   const ops = ["+", "-", "×"];
   const op = ops[Math.floor(Math.random() * ops.length)];
-  let ans;
   const x = Math.max(a, b), y = Math.min(a, b);
+  let ans;
   if (op === "+") ans = x + y;
   else if (op === "-") ans = x - y;
   else ans = x * y;
@@ -291,7 +290,7 @@ function renderAdmin() {
         <div class="info-bar">⭐ Stars can be added or removed for any member.</div>
         <div class="field"><label>Streamer password</label><input id="ap" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAdminLogin()" /></div>
         ${state.err ? `<div class="error-msg">${state.err}</div>` : ""}
-        <div style="margin-top:1.25rem"><button class="btn-primary" onclick="doAdminLogin()">Unlock panel</button></div>
+        <div style="margin-top:1.25rem"><button class="btn-primary" onclick="doAdminLogin()" ${state.loading ? "disabled" : ""}>${state.loading ? "Checking..." : "Unlock panel"}</button></div>
       </div>`;
   }
 
@@ -391,9 +390,13 @@ async function doCaptcha() {
   showToast(`Welcome, ${username}! You're on the board.`);
 }
 
-function doAdminLogin() {
+async function doAdminLogin() {
   const p = document.getElementById("ap").value;
-  if (p !== STREAMER_PASS) { state.err = "Incorrect password."; render(); return; }
+  if (!p) { state.err = "Enter the streamer password."; render(); return; }
+  state.loading = true; render();
+  const { data } = await sb.from("settings").select("value").eq("key", "streamer_password").single();
+  state.loading = false;
+  if (!data || data.value !== p) { state.err = "Incorrect password."; render(); return; }
   state.adminUnlocked = true;
   state.err = "";
   render();
