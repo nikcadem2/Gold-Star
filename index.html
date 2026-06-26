@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StreamBoard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #f9f9f8; color: #1a1a1a; min-height: 100vh; }
+
+  .app { max-width: 680px; margin: 0 auto; padding: 2rem 1rem; }
+
+  .nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 0.5px solid #e0e0e0; }
+  .nav-title { font-size: 18px; font-weight: 500; }
+  .nav-sub { font-size: 13px; color: #666; margin-top: 2px; }
+  .nav-right { display: flex; align-items: center; gap: 8px; }
+  .user-pill { font-size: 13px; color: #666; background: #f0f0ef; border: 0.5px solid #e0e0e0; border-radius: 20px; padding: 4px 12px; }
+
+  button { font-family: inherit; cursor: pointer; font-size: 14px; font-weight: 400; border-radius: 8px; transition: background 0.15s, opacity 0.15s; }
+  .btn { background: transparent; border: 0.5px solid #aaa; color: #1a1a1a; padding: 7px 16px; }
+  .btn:hover { background: #f0f0ef; }
+  .btn-primary { background: #1a1a1a; border: none; color: #fff; padding: 8px 20px; width: 100%; font-size: 14px; }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-sm { padding: 4px 12px; font-size: 12px; }
+  .btn-danger { border-color: #f09595; color: #a32d2d; }
+  .btn-danger:hover { background: #fcebeb; }
+  .btn-success { border-color: #9FE1CB; color: #0F6E56; }
+  .btn-success:hover { background: #E1F5EE; }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 1.5rem; background: #f0f0ef; border-radius: 8px; padding: 3px; }
+  .tab { flex: 1; padding: 7px; text-align: center; font-size: 13px; color: #666; border-radius: 6px; border: none; background: transparent; cursor: pointer; transition: all 0.15s; }
+  .tab.active { background: #fff; color: #1a1a1a; font-weight: 500; border: 0.5px solid #e0e0e0; }
+
+  .form-card { background: #fff; border: 0.5px solid #e0e0e0; border-radius: 12px; padding: 2rem; max-width: 380px; margin: 0 auto; }
+  .form-title { font-size: 18px; font-weight: 500; margin-bottom: 0.25rem; }
+  .form-sub { font-size: 13px; color: #666; margin-bottom: 1.5rem; }
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; }
+  .field input { width: 100%; padding: 8px 12px; font-size: 14px; font-family: inherit; border: 0.5px solid #aaa; border-radius: 8px; background: #fff; color: #1a1a1a; outline: none; transition: border-color 0.15s; }
+  .field input:focus { border-color: #378ADD; }
+  .captcha-box { background: #f5f5f5; border: 0.5px solid #e0e0e0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; text-align: center; }
+  .captcha-q { font-size: 20px; font-weight: 500; margin-bottom: 6px; }
+  .captcha-hint { font-size: 12px; color: #999; }
+  .error-msg { font-size: 12px; color: #a32d2d; margin-top: 6px; background: #fcebeb; border-radius: 6px; padding: 7px 10px; }
+  .switch-link { font-size: 13px; color: #666; text-align: center; margin-top: 1rem; }
+  .switch-link button { border: none; background: none; color: #185FA5; font-size: 13px; cursor: pointer; padding: 0; font-family: inherit; }
+  .switch-link button:hover { text-decoration: underline; }
+
+  .board-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .board-title { font-size: 16px; font-weight: 500; }
+  .board-count { font-size: 13px; color: #666; }
+  .board-table { width: 100%; border-collapse: collapse; background: #fff; border: 0.5px solid #e0e0e0; border-radius: 12px; overflow: hidden; }
+  .board-table th { font-size: 11px; font-weight: 500; color: #999; text-align: left; padding: 10px 14px; border-bottom: 0.5px solid #e0e0e0; text-transform: uppercase; letter-spacing: 0.05em; }
+  .board-table td { padding: 11px 14px; font-size: 14px; border-bottom: 0.5px solid #e0e0e0; vertical-align: middle; }
+  .board-table tr:last-child td { border-bottom: none; }
+  .board-table tr.me td { background: #EBF4FF; }
+  .rank-num { font-size: 12px; color: #999; font-weight: 500; }
+  .rank-top { color: #BA7517; font-weight: 600; }
+  .username-cell { display: flex; align-items: center; gap: 8px; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: #E6F1FB; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: #185FA5; flex-shrink: 0; }
+  .uname { font-weight: 500; }
+  .you-tag { font-size: 11px; color: #185FA5; background: #E6F1FB; border-radius: 4px; padding: 1px 6px; }
+  .stars-cell { display: flex; align-items: center; gap: 4px; }
+  .date-cell { font-size: 12px; color: #999; }
+  .empty-board { text-align: center; padding: 3rem 1rem; color: #666; background: #fff; border: 0.5px solid #e0e0e0; border-radius: 12px; }
+
+  .panel-card { background: #fff; border: 0.5px solid #e0e0e0; border-radius: 12px; overflow: hidden; }
+  .panel-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 0.5px solid #e0e0e0; }
+  .panel-row:last-child { border-bottom: none; }
+  .panel-user { display: flex; align-items: center; gap: 10px; }
+  .panel-name { font-size: 14px; font-weight: 500; }
+  .panel-stars { font-size: 13px; color: #666; }
+  .panel-actions { display: flex; gap: 6px; }
+  .panel-empty { padding: 2rem; text-align: center; color: #666; font-size: 14px; }
+  .badge-amber { display: inline-block; font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: 4px; background: #FAEEDA; color: #633806; }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: #fff; font-size: 13px; padding: 9px 18px; border-radius: 20px; opacity: 0; transition: opacity 0.2s; pointer-events: none; white-space: nowrap; z-index: 999; }
+  .toast.show { opacity: 1; }
+
+  .loading { text-align: center; padding: 4rem; color: #999; font-size: 14px; }
+  .info-bar { background: #f5f5f5; border: 0.5px solid #e0e0e0; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #666; margin-bottom: 1.25rem; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="nav">
+    <div>
+      <div class="nav-title">⚡ StreamBoard</div>
+      <div class="nav-sub">Community scoreboard</div>
+    </div>
+    <div class="nav-right">
+      <div id="nav-user" style="display:none"></div>
+      <button class="btn btn-sm" id="nav-logout" style="display:none" onclick="logout()">Sign out</button>
+    </div>
+  </div>
+  <div id="root"><div class="loading">Loading...</div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = "https://vuunglcikuscrxqhczhp.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1dW5nbGNpa3VzY3J4cWhjemhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MDMzMzYsImV4cCI6MjA5ODA3OTMzNn0.DsUBA6R3hOYBodS9z0XUgiQVEet3cnEOgwrk9d_yPoQ";
+const STREAMER_PASS = "streamer123";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let state = {
+  view: "auth",
+  authMode: "login",
+  regStep: 1,
+  currentUser: null,
+  adminUnlocked: false,
+  users: [],
+  captcha: null,
+  pendingReg: null,
+  err: "",
+  loading: false,
+};
+
+function hashPw(pw) {
+  let h = 0;
+  for (let i = 0; i < pw.length; i++) h = ((h << 5) - h + pw.charCodeAt(i)) | 0;
+  return h.toString(36);
+}
+
+function genCaptcha() {
+  const a = Math.floor(Math.random() * 12) + 3;
+  const b = Math.floor(Math.random() * 12) + 2;
+  const ops = ["+", "-", "×"];
+  const op = ops[Math.floor(Math.random() * ops.length)];
+  let ans;
+  const x = Math.max(a, b), y = Math.min(a, b);
+  if (op === "+") ans = x + y;
+  else if (op === "-") ans = x - y;
+  else ans = x * y;
+  return { q: `${x} ${op} ${y}`, ans };
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2400);
+}
+
+function formatDate(ts) {
+  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function getInitials(u) { return u.slice(0, 2).toUpperCase(); }
+
+async function loadUsers() {
+  const { data } = await sb.from("users").select("username,joined,stars").order("stars", { ascending: false }).order("joined", { ascending: true });
+  state.users = data || [];
+}
+
+function loadSession() {
+  const u = localStorage.getItem("sb_current_user");
+  if (u) state.currentUser = u;
+}
+
+function saveSession(u) { localStorage.setItem("sb_current_user", u); }
+function clearSession() { localStorage.removeItem("sb_current_user"); }
+
+async function logout() {
+  state.currentUser = null;
+  state.view = "auth";
+  state.authMode = "login";
+  state.adminUnlocked = false;
+  state.err = "";
+  clearSession();
+  render();
+}
+
+function render() {
+  const root = document.getElementById("root");
+  const navUser = document.getElementById("nav-user");
+  const navLogout = document.getElementById("nav-logout");
+
+  if (state.currentUser) {
+    navUser.style.display = "block";
+    navUser.innerHTML = `<span class="user-pill">${state.currentUser}</span>`;
+    navLogout.style.display = "block";
+  } else {
+    navUser.style.display = "none";
+    navLogout.style.display = "none";
+  }
+
+  if (state.view === "auth") root.innerHTML = renderAuth();
+  else if (state.view === "board") root.innerHTML = renderBoard();
+  else if (state.view === "admin") root.innerHTML = renderAdmin();
+}
+
+function renderAuth() {
+  if (state.authMode === "register") return renderRegister();
+  return `
+    <div class="form-card">
+      <div class="form-title">Welcome back</div>
+      <div class="form-sub">Sign in to appear on the scoreboard.</div>
+      <div class="field"><label>Username</label><input id="l-user" type="text" placeholder="your username" /></div>
+      <div class="field"><label>Password</label><input id="l-pass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()" /></div>
+      ${state.err ? `<div class="error-msg">${state.err}</div>` : ""}
+      <div style="margin-top:1.25rem"><button class="btn-primary" onclick="doLogin()" ${state.loading ? "disabled" : ""}>${state.loading ? "Signing in..." : "Sign in"}</button></div>
+      <div class="switch-link">No account? <button onclick="switchMode('register')">Create one</button></div>
+    </div>`;
+}
+
+function renderRegister() {
+  if (state.regStep === 2) {
+    const c = state.captcha;
+    return `
+      <div class="form-card">
+        <div class="form-title">One quick check</div>
+        <div class="form-sub">Solve this to verify you're human.</div>
+        <div class="captcha-box">
+          <div class="captcha-q">What is ${c.q}?</div>
+          <div class="captcha-hint">Enter the number below</div>
+        </div>
+        <div class="field"><label>Answer</label><input id="cap-ans" type="number" placeholder="Type your answer" onkeydown="if(event.key==='Enter')doCaptcha()" /></div>
+        ${state.err ? `<div class="error-msg">${state.err}</div>` : ""}
+        <div style="margin-top:1.25rem"><button class="btn-primary" onclick="doCaptcha()" ${state.loading ? "disabled" : ""}>${state.loading ? "Creating account..." : "Confirm &amp; create account"}</button></div>
+        <div class="switch-link"><button onclick="state.regStep=1;state.err='';render()">← Back</button></div>
+      </div>`;
+  }
+  return `
+    <div class="form-card">
+      <div class="form-title">Create account</div>
+      <div class="form-sub">Pick a username and password to join.</div>
+      <div class="field"><label>Username</label><input id="r-user" type="text" placeholder="e.g. coolviewer42" maxlength="20" /></div>
+      <div class="field"><label>Password</label><input id="r-pass" type="password" placeholder="min 6 characters" /></div>
+      <div class="field"><label>Confirm password</label><input id="r-pass2" type="password" placeholder="same as above" onkeydown="if(event.key==='Enter')doRegStep1()" /></div>
+      ${state.err ? `<div class="error-msg">${state.err}</div>` : ""}
+      <div style="margin-top:1.25rem"><button class="btn-primary" onclick="doRegStep1()">Continue</button></div>
+      <div class="switch-link">Already have one? <button onclick="switchMode('login')">Sign in</button></div>
+    </div>`;
+}
+
+function renderBoard() {
+  const sorted = state.users;
+  return `
+    <div class="tabs">
+      <button class="tab active">Scoreboard</button>
+      <button class="tab" onclick="goAdmin()">Streamer panel</button>
+    </div>
+    <div class="board-header">
+      <div class="board-title">Scoreboard</div>
+      <div class="board-count">${sorted.length} member${sorted.length !== 1 ? "s" : ""}</div>
+    </div>
+    ${sorted.length === 0
+      ? `<div class="empty-board"><p>No members yet — you're the first!</p></div>`
+      : `<table class="board-table">
+          <thead><tr>
+            <th style="width:36px">#</th>
+            <th>Member</th>
+            <th>Stars</th>
+            <th>Joined</th>
+          </tr></thead>
+          <tbody>
+            ${sorted.map((u, i) => {
+              const isMe = u.username === state.currentUser;
+              const starsHtml = u.stars > 0
+                ? `<span>⭐</span><span style="font-size:13px;color:#666">× ${u.stars}</span>`
+                : `<span style="font-size:13px;color:#bbb">—</span>`;
+              return `<tr class="${isMe ? "me" : ""}">
+                <td><span class="rank-num ${i < 3 ? "rank-top" : ""}">${i + 1}</span></td>
+                <td><div class="username-cell">
+                  <div class="avatar">${getInitials(u.username)}</div>
+                  <span class="uname">${u.username}</span>
+                  ${isMe ? `<span class="you-tag">you</span>` : ""}
+                </div></td>
+                <td><div class="stars-cell">${starsHtml}</div></td>
+                <td><span class="date-cell">${formatDate(u.joined)}</span></td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>`}`;
+}
+
+function renderAdmin() {
+  if (!state.adminUnlocked) {
+    return `
+      <div class="tabs">
+        <button class="tab" onclick="state.view='board';render()">Scoreboard</button>
+        <button class="tab active">Streamer panel</button>
+      </div>
+      <div class="form-card" style="max-width:360px">
+        <div class="form-title">Streamer access</div>
+        <div class="form-sub">Enter the streamer password to manage stars.</div>
+        <div class="info-bar">⭐ Stars can be added or removed for any member.</div>
+        <div class="field"><label>Streamer password</label><input id="ap" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAdminLogin()" /></div>
+        ${state.err ? `<div class="error-msg">${state.err}</div>` : ""}
+        <div style="margin-top:1.25rem"><button class="btn-primary" onclick="doAdminLogin()">Unlock panel</button></div>
+      </div>`;
+  }
+
+  const sorted = state.users;
+  return `
+    <div class="tabs">
+      <button class="tab" onclick="state.view='board';render()">Scoreboard</button>
+      <button class="tab active">Streamer panel</button>
+    </div>
+    <div class="board-header">
+      <div class="board-title">Manage stars</div>
+      <span class="badge-amber">Streamer mode</span>
+    </div>
+    ${sorted.length === 0
+      ? `<div class="panel-card"><div class="panel-empty">No members registered yet.</div></div>`
+      : `<div class="panel-card">
+          ${sorted.map(u => `
+            <div class="panel-row">
+              <div class="panel-user">
+                <div class="avatar">${getInitials(u.username)}</div>
+                <div>
+                  <div class="panel-name">${u.username}</div>
+                  <div class="panel-stars">${u.stars} star${u.stars !== 1 ? "s" : ""}</div>
+                </div>
+              </div>
+              <div class="panel-actions">
+                ${u.stars > 0 ? `<button class="btn btn-sm btn-danger" onclick="removeStar('${u.username}')">Remove ⭐</button>` : ""}
+                <button class="btn btn-sm btn-success" onclick="addStar('${u.username}')">+ Give ⭐</button>
+              </div>
+            </div>`).join("")}
+        </div>`}`;
+}
+
+function switchMode(m) { state.authMode = m; state.regStep = 1; state.err = ""; render(); }
+
+async function goAdmin() {
+  state.view = "admin";
+  state.adminUnlocked = false;
+  state.err = "";
+  await loadUsers();
+  render();
+}
+
+async function doLogin() {
+  const u = document.getElementById("l-user").value.trim();
+  const p = document.getElementById("l-pass").value;
+  if (!u || !p) { state.err = "Fill in both fields."; render(); return; }
+  state.loading = true; render();
+  const { data } = await sb.from("users").select("username,password_hash").eq("username", u).single();
+  state.loading = false;
+  if (!data || data.password_hash !== hashPw(p)) { state.err = "Username or password is incorrect."; render(); return; }
+  state.currentUser = u;
+  state.view = "board";
+  state.err = "";
+  saveSession(u);
+  await loadUsers();
+  render();
+  showToast(`Welcome back, ${u}!`);
+}
+
+function doRegStep1() {
+  const u = document.getElementById("r-user").value.trim();
+  const p = document.getElementById("r-pass").value;
+  const p2 = document.getElementById("r-pass2").value;
+  if (!u || !p || !p2) { state.err = "Fill in all fields."; render(); return; }
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(u)) { state.err = "Username must be 3–20 characters (letters, numbers, _)."; render(); return; }
+  if (p.length < 6) { state.err = "Password must be at least 6 characters."; render(); return; }
+  if (p !== p2) { state.err = "Passwords don't match."; render(); return; }
+  state.pendingReg = { username: u, hash: hashPw(p) };
+  state.captcha = genCaptcha();
+  state.regStep = 2;
+  state.err = "";
+  render();
+}
+
+async function doCaptcha() {
+  const ans = parseInt(document.getElementById("cap-ans").value);
+  if (isNaN(ans)) { state.err = "Enter a number."; render(); return; }
+  if (ans !== state.captcha.ans) { state.captcha = genCaptcha(); state.err = "Not quite — try this new one."; render(); return; }
+  state.loading = true; render();
+  const { username, hash } = state.pendingReg;
+  const { error } = await sb.from("users").insert({ username, password_hash: hash, joined: Date.now(), stars: 0 });
+  state.loading = false;
+  if (error) {
+    if (error.code === "23505") { state.err = "That username is already taken. Go back and choose another."; }
+    else { state.err = "Something went wrong. Try again."; }
+    render(); return;
+  }
+  state.currentUser = username;
+  state.view = "board";
+  state.regStep = 1;
+  state.err = "";
+  state.pendingReg = null;
+  saveSession(username);
+  await loadUsers();
+  render();
+  showToast(`Welcome, ${username}! You're on the board.`);
+}
+
+function doAdminLogin() {
+  const p = document.getElementById("ap").value;
+  if (p !== STREAMER_PASS) { state.err = "Incorrect password."; render(); return; }
+  state.adminUnlocked = true;
+  state.err = "";
+  render();
+}
+
+async function addStar(u) {
+  const user = state.users.find(x => x.username === u);
+  if (!user) return;
+  await sb.from("users").update({ stars: user.stars + 1 }).eq("username", u);
+  await loadUsers();
+  render();
+  showToast(`⭐ Star added for ${u}!`);
+}
+
+async function removeStar(u) {
+  const user = state.users.find(x => x.username === u);
+  if (!user || user.stars <= 0) return;
+  await sb.from("users").update({ stars: user.stars - 1 }).eq("username", u);
+  await loadUsers();
+  render();
+  showToast(`Star removed from ${u}.`);
+}
+
+(async () => {
+  loadSession();
+  await loadUsers();
+  if (state.currentUser && !state.users.find(u => u.username === state.currentUser)) {
+    state.currentUser = null;
+    clearSession();
+  }
+  if (state.currentUser) state.view = "board";
+  render();
+})();
+</script>
+</body>
+</html>
